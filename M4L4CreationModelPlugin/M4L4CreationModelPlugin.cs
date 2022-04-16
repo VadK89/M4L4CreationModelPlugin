@@ -56,19 +56,19 @@ namespace M4L4CreationModelPlugin
                 .Where(x => x.Name.Equals("0915 x 1830 мм"))
                 .Where(x => x.FamilyName.Equals("Фиксированные"))
                 .FirstOrDefault();
-            //поиск метсте установки
+            //поиск места установки
             LocationCurve hostCurve = wall.Location as LocationCurve;
             XYZ point1 = hostCurve.Curve.GetEndPoint(0);//точка начала кривой
             XYZ point2 = hostCurve.Curve.GetEndPoint(1);//точка конца кривой
             XYZ point = (point1 + point2) / 2;//средняя точка. место установки двери
-            //активация эелемента
+            //активация элемента
             if (!windowType.IsActive)
                 windowType.Activate();
 
-            //создание двери
+            //создание окна
            FamilyInstance window = doc.Create.NewFamilyInstance(point, windowType, wall, level1, StructuralType.NonStructural);
             window.flipFacing();
-
+            //сдвиг от уровня
             double height= UnitUtils.ConvertToInternalUnits(1070, UnitTypeId.Millimeters);
             window.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM).Set(UnitUtils.ConvertToInternalUnits(800, UnitTypeId.Millimeters));
         }
@@ -82,12 +82,12 @@ namespace M4L4CreationModelPlugin
                 .Where(x => x.Name.Equals("0915 x 2134 мм"))
                 .Where(x => x.FamilyName.Equals("Одиночные-Щитовые"))
                 .FirstOrDefault();
-            //поиск метсте установки
-           LocationCurve hostCurve= wall.Location as LocationCurve;
+            //поиск места установки
+            LocationCurve hostCurve = wall.Location as LocationCurve;
             XYZ point1 = hostCurve.Curve.GetEndPoint(0);//точка начала кривой
             XYZ point2 = hostCurve.Curve.GetEndPoint(1);//точка конца кривой
             XYZ point = (point1 + point2) / 2;//средняя точка. место установки двери
-            //активация эелемента
+            //активация элемента
             if (!doorType.IsActive)
                 doorType.Activate();
             
