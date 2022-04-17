@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Autodesk.Revit.ApplicationServices;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
@@ -34,15 +35,19 @@ namespace M4L4CreationModelPlugin
                  .Where(x => x.Name.Equals("Уровень 2"))
                  .FirstOrDefault();
 
+            //Задание габаритов 
+            double width = UnitUtils.ConvertToInternalUnits(10000, UnitTypeId.Millimeters);
+            double depth = UnitUtils.ConvertToInternalUnits(5000, UnitTypeId.Millimeters);
+
             //транзакция с циклом для построения стен
             Transaction transaction = new Transaction(doc, "Построение стен");
             transaction.Start();
-            List<Wall> walls = WallCreator(doc, level1, level2);
+            List<Wall> walls = WallCreator(doc, level1, level2, depth, width);
             AddDoor(doc, level1, walls[0]);
             AddWindow(doc, level1, walls[1]);
             AddWindow(doc, level1, walls[2]);
             AddWindow(doc, level1, walls[3]);
-
+            AddRoof(doc, level2, walls, depth, width);
             transaction.Commit();
             return Result.Succeeded;
         }
@@ -95,10 +100,8 @@ namespace M4L4CreationModelPlugin
             doc.Create.NewFamilyInstance(point, doorType, wall, level1, StructuralType.NonStructural);
         }
 
-        public List<Wall> WallCreator(Document doc, Level levelone, Level leveltwo)
-        {
-            double width = UnitUtils.ConvertToInternalUnits(10000, UnitTypeId.Millimeters);
-            double depth = UnitUtils.ConvertToInternalUnits(5000, UnitTypeId.Millimeters);
+        public List<Wall> WallCreator(Document doc, Level levelone, Level leveltwo, double depth, double width)
+        {            
             double dx = width / 2;
             double dy = depth / 2;
             //коллекция точек
@@ -125,6 +128,105 @@ namespace M4L4CreationModelPlugin
             }
             return walls;
         }
+        private void AddRoof(Document doc, Level level2, List<Wall> walls, double depth, double width)
+        {
+            //выбор крыши
+            RoofType roofType = new FilteredElementCollector(doc)
+                 .OfClass(typeof(RoofType))
+                 .OfType<RoofType>()
+                 .Where(x => x.Name.Equals("Типовой - 125мм"))
+                 .Where(x => x.FamilyName.Equals("Базовая крыша"))
+                 .FirstOrDefault();
+
+            View viewPlan = new FilteredElementCollector(doc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .FirstOrDefault(v => v.ViewType == ViewType.FloorPlan && v.Name.Equals("Уровень 1"));//Выбор конкретного плана этажа
+
+
+            //получение ширины стены
+            double wallWidth = walls[0].Width;
+
+            //получение смещения
+            double dt = (wallWidth / 2)+0.5;//косая крыша, как правило немного выстыпает за пределы стен
+
+            double extrStart = -width / 2 - dt;
+            double extrEnd = width / 2 + dt;
+
+            double curveStart = -depth / 2 - dt;
+            double curveEnd = +depth / 2 + dt;
+
+
+
+            CurveArray curveArray = new CurveArray();
+            curveArray.Append(Line.CreateBound(new XYZ(0, curveStart, level2.Elevation), new XYZ(0, 0, level2.Elevation+5)));
+            curveArray.Append(Line.CreateBound(new XYZ(0, 0, level2.Elevation + 5), new XYZ(0, curveEnd, level2.Elevation)));
+
+
+            ReferencePlane plane = doc.Create.NewReferencePlane(new XYZ(0, 0, 0), new XYZ(0, 0, 20), new XYZ(0, 20, 0), viewPlan);
+            ExtrusionRoof extrusionRoof=doc.Create.NewExtrusionRoof(curveArray, plane, level2, roofType, extrStart, extrEnd);
+            extrusionRoof.EaveCuts = EaveCutterType.TwoCutSquare;
+
+
+        }
+        //private void AddRoof(Document doc, Level level2, List<Wall> walls)
+        //{
+        //    //выбор крыши
+        //   RoofType roofType=new FilteredElementCollector(doc)
+        //        .OfClass(typeof(RoofType))
+        //        .OfType<RoofType>()
+        //        .Where(x=>x.Name.Equals("Типовой - 400мм"))
+        //        .Where(x => x.FamilyName.Equals("Базовая крыша"))
+        //        .FirstOrDefault();
+
+        //    //получение ширины стены
+        //    double wallWidth = walls[0].Width;
+
+        //    //получение смещения
+        //    double dt = wallWidth / 2;
+        //    //коллекция точек
+        //    List<XYZ> points = new List<XYZ>();
+
+        //    //добавление точек"зацикленно"
+        //    points.Add(new XYZ(-dt, -dt, 0));
+        //    points.Add(new XYZ(dt, -dt, 0));
+        //    points.Add(new XYZ(dt, dt, 0));
+        //    points.Add(new XYZ(-dt, dt, 0));
+        //    points.Add(new XYZ(-dt, -dt, 0));
+        //    //создание отпечатка
+        //    Application application = doc.Application;
+        //    CurveArray footprint = application.Create.NewCurveArray();
+        //    //привязка отпечатка к контуру стен
+        //    for (int i = 0; i < 4; i++)
+        //    {
+        //        LocationCurve curve = walls[i].Location as LocationCurve;
+        //        //получение линии со смещением
+        //        XYZ pt1 = curve.Curve.GetEndPoint(0);//точка начала кривой
+        //        XYZ pt2 = curve.Curve.GetEndPoint(1);//точка конца кривой
+        //        //создание новой линии со смещением
+        //        Line line = Line.CreateBound(pt1 + points[i], pt2 + points[i+1]);
+
+        //        footprint.Append(line);
+        //    }
+
+        //    ModelCurveArray footPrintToModelCurveMapping = new ModelCurveArray();
+        //    FootPrintRoof footprintRoof = doc.Create.NewFootPrintRoof(footprint, level2, roofType, out footPrintToModelCurveMapping);
+        //    //наклон крыши
+        //    //ModelCurveArrayIterator iterator = footPrintToModelCurveMapping.ForwardIterator();
+        //    //iterator.Reset();
+        //    //while (iterator.MoveNext())
+        //    //{
+        //    //    ModelCurve modelCurve = iterator.Current as ModelCurve;
+        //    //    footprintRoof.set_DefinesSlope(modelCurve, true);
+        //    //    footprintRoof.set_SlopeAngle(modelCurve, 0.5);
+        //    //}
+        //    foreach (ModelCurve m in footPrintToModelCurveMapping)
+        //    {
+        //        footprintRoof.set_DefinesSlope(m, true);
+        //        footprintRoof.set_SlopeAngle(m, 0.75);
+        //    }
+
+        //}
 
     }
 
