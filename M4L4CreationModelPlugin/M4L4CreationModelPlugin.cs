@@ -149,23 +149,24 @@ namespace M4L4CreationModelPlugin
 
             //получение смещения
             double dt = (wallWidth / 2)+0.5;//косая крыша, как правило немного выстыпает за пределы стен
-
+            //задание начали и конца для ExtrusionRoof
             double extrStart = -width / 2 - dt;
             double extrEnd = width / 2 + dt;
-
+            //задание начала и конца для массива кривых
             double curveStart = -depth / 2 - dt;
             double curveEnd = +depth / 2 + dt;
 
-
+            //задание массива кривых для построения
 
             CurveArray curveArray = new CurveArray();
-            curveArray.Append(Line.CreateBound(new XYZ(0, curveStart, level2.Elevation), new XYZ(0, 0, level2.Elevation+5)));
+            curveArray.Append(Line.CreateBound(new XYZ(0, curveStart, level2.Elevation), new XYZ(0, 0, level2.Elevation + 5)));
             curveArray.Append(Line.CreateBound(new XYZ(0, 0, level2.Elevation + 5), new XYZ(0, curveEnd, level2.Elevation)));
+
 
 
             ReferencePlane plane = doc.Create.NewReferencePlane(new XYZ(0, 0, 0), new XYZ(0, 0, 20), new XYZ(0, 20, 0), viewPlan);
             ExtrusionRoof extrusionRoof=doc.Create.NewExtrusionRoof(curveArray, plane, level2, roofType, extrStart, extrEnd);
-            extrusionRoof.EaveCuts = EaveCutterType.TwoCutSquare;
+            extrusionRoof.EaveCuts = EaveCutterType.TwoCutSquare;//обрезка по карнизу
 
 
         }
